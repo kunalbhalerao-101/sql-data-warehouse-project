@@ -1,0 +1,70 @@
+---1) Dimension Table - Customer
+
+Create View Gold.dim_customer
+AS
+	Select 
+	ROW_NUMBER() Over(Order by cst_id) as Customer_key,
+	cst_id as Customer_id,
+	cst_key as Customer_number,
+	cst_firstname as Firstname,
+	cst_lastname as Lastname,
+	el.cntry as Country,
+	cst_marital_status as Marital_status,
+	CASE
+		WHEN cc.cst_gndr != 'NA' THEN cc.cst_gndr
+		ELSE COALESCE(ec.gen,'NA')
+	END AS Gender,
+	ec.bdate as BirthDate,
+	cst_create_date
+	from Silver.crm_cust_info as cc
+	Left Join Silver.erp_cust_az12 as ec
+	ON cc.cst_key = ec.cid
+	Left Join Silver.erp_loc_a101 as el
+	ON cc.cst_key = el.cid
+
+Select * from Gold.dim_customer
+
+
+---2) Dimension Table - Products
+Create VIEW Gold.dim_Product
+AS
+Select
+Row_Number() Over(Order By pn.prd_start_dt,pn.prd_id) as Product_Key,
+pn.prd_id as Product_ID,
+pn.prd_key as Product_Number,
+pn.prd_nm as Product_Name,
+pn.cat_id as Category_ID,
+pc.cat as Category,
+pc.subcat as Subcategory,
+pc.maintenance as Maintenance,
+pn.prd_cost as Product_Cost,
+pn.prd_line,
+pn.prd_start_dt as Start_Date
+from Silver.crm_prd_info as pn
+LEFT Join Silver.erp_px_cat_g1v2 as pc
+ON pn.cat_id = pc.id
+Where pn.prd_end_dt IS NULL
+
+Select * from Gold.dim_Product
+
+--3) Fact - Sales Table
+
+Create VIEW Gold.Fact_Sales
+AS
+Select
+s.sls_ord_num as Order_ID,
+gp.Product_key as Prod_ID,
+gc.Customer_key as Cust_ID,
+s.sls_order_dt as Order_Date,
+s.sls_ship_dt as Shipping_Date,
+s.sls_due_dt as Due_Date,
+s.sls_price as Price,
+s.sls_quantity as Qty,
+s.sls_sales as Sales 
+from Silver.crm_sales_details as s
+LEFT Join gold.dim_Product as gp
+ON gp.Product_Number = s.sls_prd_key
+LEFT Join gold.dim_customer as gc
+ON s.sls_cust_id = gc.Customer_id
+
+Select * from Gold.Fact_Sales
